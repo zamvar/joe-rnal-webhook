@@ -1,0 +1,15 @@
+
+{
+  "name": "google_chat_webhook",
+  "version": "1.0.0",
+  "main": "sendToGoogleChat.js",
+  "scripts": {
+    "start": "node sendToGoogleChat.js"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "node-cron": "^3.0.2",
+    "tz-offset": "^0.0.2",
+    "dotenv": "^8.2.0"
+  }
+}
