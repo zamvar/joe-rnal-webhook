@@ -22,12 +22,6 @@ const jobs = [
         //  # Every weekday at 11 PM
         webhookURL: process.env.WEBHOOK_URL_2,
         message: 'Hi <users/all>, Please dont forget to log tasks in journal'
-    },
-    {
-        cronTime: '* * * * *',
-        //  # Every Minute
-        webhookURL: process.env.WEBHOOK_URL_3,
-        message: 'Hi <users/all>, This is a test please disregard'
     }
 ];
 
