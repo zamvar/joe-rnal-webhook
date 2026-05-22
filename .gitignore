@@ -1,3 +1,6 @@
 .env
 node_modules/
 logs/
+nodejs/node_modules/
+nodejs/logs/
+rust/target/

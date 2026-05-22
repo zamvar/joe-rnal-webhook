@@ -1,131 +1,119 @@
 # Joe-rnal Webhook Reminders 🤖🥤
 
-A lightweight, reliable, and secure Node.js application that schedules automated Google Chat reminders using incoming webhooks. It features witty Tagalog/Taglish developer-focused hydration reminders and structured journal check-ins.
+A multi-language reminder system providing automated Google Chat reminders using incoming webhooks. It features witty Tagalog/Taglish developer-focused hydration reminders and structured journal check-ins.
 
-Managed via **PM2** as two independent, isolated daemons.
-
----
-
-## Features
-
-1. **Hydration Reminder (`hydration-reminder`)**
-   * Runs **hourly** (9:00 AM - 5:00 PM) on weekdays (Monday - Friday).
-   * Cycles through **40+ casual, witty Tagalog/Taglish messages** to keep the team entertained and hydrated.
-   * Tags the whole channel (`<users/all>`) and randomly calls out one specific developer from a configured list on each run.
-2. **Journal Reminder (`journal-reminder`)**
-   * Runs at **11:00 AM, 6:00 PM, and 11:00 PM** every day.
-   * Always tags `<users/all>` to remind everyone to submit their journal entries.
+Both the **Node.js** and **Rust** implementations are included and share the **same configuration file** located in the root of the project.
 
 ---
 
-## 🛠️ Step 1: Installation & Setup
+## 📂 Project Structure
 
-Because this project is hosted on a workspace disk format that restricts symlink creation, dependencies must be installed without bin links:
-
-```bash
-# Install dependencies safely
-npm install --no-bin-links
+```
+root/
+├── nodejs/            # Node.js implementation & PM2 profiles
+│   ├── scheduler.js   # Unified check-in & hydration scheduler
+│   ├── hydrationReminder.js
+│   ├── journalReminder.js
+│   ├── messenger.js
+│   └── ecosystem.config.js
+├── rust/              # Rust implementation (high performance)
+│   ├── src/           # Rust source files (main, scheduler, messenger, hydration, journal)
+│   └── Cargo.toml
+├── .env               # Shared environment configuration (untracked)
+├── .example.env       # Shared environment configuration template
+└── README.md
 ```
 
 ---
 
-## 📝 Step 2: Environment Configuration (`.env`)
+## 📝 Step 1: Environment Configuration (`.env`)
 
-Create a file named `.env` in the root of the project:
+Create a shared `.env` file at the **root** of the project:
 
 ```bash
-touch .env
+# In the root directory
+cp .example.env .env
 ```
 
-Open `.env` in your editor and add the following template:
-
+Open `.env` in your editor and configure the active webhook URLs and mentions list:
 ```env
 # Google Chat Webhook URLs
 WEBHOOK_URL_1=https://chat.googleapis.com/v1/spaces/...
+WEBHOOK_URL_2=https://chat.googleapis.com/v1/spaces/...
 WEBHOOK_URL_HYDRATION=https://chat.googleapis.com/v1/spaces/...
 
 # Comma-separated list of 21-digit Google User IDs for Hydration Callouts
-MENTIONS_HYDRATION=123456789012345678901,987654321098765432109,111222333444555666777
+MENTIONS_HYDRATION=123456789012345678901,987654321098765432109
 ```
 
----
-
-## 🕵️ How to Get Google Chat User IDs
-
-Incoming Webhooks cannot mention users by name or email. You must provide their unique **21-digit Google Profile ID**.
-
-### The "Inspect Element" Method (Fastest)
+### 🕵️ How to Get Google Chat User IDs
 1. Open [Google Chat](https://chat.google.com/) in your desktop browser.
-2. Go to the space where the person is located.
-3. **Right-click** on the person's profile name or avatar picture and select **Inspect** to open Developer Tools.
-4. Locate the HTML element. Look for the attribute:
-   * `data-member-id="users/123456789012345678901"`
-   * OR `data-person-id="123456789012345678901"`
-5. Copy the 21-digit number and paste it into the `MENTIONS_HYDRATION` list in your `.env` file, separated by commas.
+2. **Right-click** on the person's profile name or avatar picture and select **Inspect**.
+3. Look for the attribute: `data-member-id="users/123456789012345678901"` or `data-person-id="123456789012345678901"`.
+4. Copy that **21-digit number** and add it to `MENTIONS_HYDRATION`.
 
 ---
 
-## 🧪 Step 3: Test Your Mentions Configuration
+## 🟢 Option A: Running the Node.js Implementation
 
-Before launching, you can run a dry-test command to verify that the script successfully reads and randomizes your `.env` user list:
+The Node.js version is structured as clean daemons managed by PM2.
 
+### 1. Installation
+Because the workspace disk format limits symlink creation, dependencies must be installed without bin links:
 ```bash
-node -e "require('dotenv').config(); console.log('Parsed mention pattern:', require('./messenger').getHydrationMentions())"
+cd nodejs
+npm install --no-bin-links
 ```
 
-*Expected Output:*
-`Parsed mention pattern: <users/all> (lalo na kay <users/123456789012345678901>)` *(with a random ID from your list)*
-
----
-
-## 🚀 Step 4: Running with PM2
-
-The application supports two modes of execution depending on your preference. **Choose only one option below** to prevent duplicate reminders:
-
-### Option A: Unified Mode (Recommended for low RAM)
-Runs both the journal and hydration schedulers inside a **single** Node.js process. This reduces memory overhead by ~50% (~35MB total).
-
+### 2. Test Mentions Configuration
+Verify that the loader parses and randomizes your root `.env` user list correctly:
 ```bash
-# Start in Unified Mode
+cd nodejs
+node -e "const path = require('path'); require('dotenv').config({ path: path.resolve('..', '.env') }); console.log('Parsed mention pattern:', require('./messenger').getHydrationMentions())"
+```
+
+### 3. Running with PM2
+To run Node.js in the background:
+```bash
+cd nodejs
+
+# Mode 1: Unified Mode (Recommended - single process to save memory)
 pm2 start ecosystem.config.js --only JoeRnalUnified
-```
 
-### Option B: Split Mode (Recommended for independent control)
-Runs the reminders in **two separate** processes. This allows you to stop or pause one reminder without affecting the other.
-
-```bash
-# Start in Split Mode
+# Mode 2: Split Mode (Separate processes for independent control)
 pm2 start ecosystem.config.js --only JournalReminder,HydrationReminder
 ```
 
+### 4. Monitoring PM2
+```bash
+# Check process list
+pm2 status
+
+# View live console output
+pm2 logs JoeRnalUnified
+```
+
 ---
 
-## 📊 Managing & Monitoring PM2
+## 🦀 Option B: Running the Rust Implementation
 
-### Check Running Status
+The Rust version is ultra-fast, memory-safe, and compiled into a single binary. It supports a built-in dry-run testing mode out-of-the-box.
+
+### 1. Dry Run / Test (Recommended)
+Verify configurations, formatted Tagalog messages, random mentions, and timezone calculation without sending active webhook requests:
 ```bash
-pm2 status
+# Directing cargo target to your home folder to bypass disk targets limitations
+CARGO_TARGET_DIR=$HOME/.cargo/target-joe-rnal cargo run --manifest-path rust/Cargo.toml -- --mode unified --dry-run
 ```
 
-### View Live Logs
-To see logs in real-time (helps verify cron execution or dry runs):
+### 2. Running in Production
 ```bash
-# View logs for all running PM2 processes
-pm2 logs
-
-# View logs for specific processes
-pm2 logs JoeRnalUnified
-pm2 logs HydrationReminder
-pm2 logs JournalReminder
+CARGO_TARGET_DIR=$HOME/.cargo/target-joe-rnal cargo run --manifest-path rust/Cargo.toml -- --mode unified
 ```
+*(You can also use `--mode journal` or `--mode hydration` to run split sub-tasks)*
 
-### Pause / Stop a Process
-If you are in **Split Mode** and want to temporarily pause hydration reminders (e.g., during a holiday weekend):
+### 3. Compiling a Release Binary
 ```bash
-pm2 stop HydrationReminder
+CARGO_TARGET_DIR=$HOME/.cargo/target-joe-rnal cargo build --release --manifest-path rust/Cargo.toml
 ```
-
-### Restart a Process
-```bash
-pm2 restart JoeRnalUnified
-```
+Your optimized standalone binary will be built at: `$HOME/.cargo/target-joe-rnal/release/joe-rnal-webhook`
