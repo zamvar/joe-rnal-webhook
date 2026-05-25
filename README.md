@@ -117,3 +117,14 @@ CARGO_TARGET_DIR=$HOME/.cargo/target-joe-rnal cargo run --manifest-path rust/Car
 CARGO_TARGET_DIR=$HOME/.cargo/target-joe-rnal cargo build --release --manifest-path rust/Cargo.toml
 ```
 Your optimized standalone binary will be built at: `$HOME/.cargo/target-joe-rnal/release/joe-rnal-webhook`
+
+### 4. Running the Rust Binary via PM2
+Once you compile the release binary, PM2 can manage it directly to ensure zero-downtime, automated restarts, and log rotation:
+```bash
+cd nodejs
+
+# Start the Rust scheduler in PM2
+pm2 start ecosystem.config.js --only JoeRnalRust
+```
+*(Note: If you are compiling your binary to a custom target directory like `$HOME/.cargo/target-joe-rnal`, update the `script` path inside `nodejs/ecosystem.config.js` to reference that absolute path.)*
+
