@@ -4,3 +4,4 @@ logs/
 nodejs/node_modules/
 nodejs/logs/
 rust/target/
+rust/logs/
