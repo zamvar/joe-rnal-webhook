@@ -4,6 +4,7 @@ use reqwest::{Client, Response, Url};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use rand::seq::SliceRandom;
+use std::time::Duration;
 
 /// Global thread-safe cache for parsed user IDs.
 static CACHED_MENTIONS: OnceLock<Vec<String>> = OnceLock::new();
@@ -67,6 +68,12 @@ pub fn validate_url(url_str: &str) -> Result<Url, String> {
     Ok(url)
 }
 
+/// Helper function to sanitize sensitive URL webhook tokens from error strings
+pub fn sanitize_error(err_str: &str) -> String {
+    let re = regex::Regex::new(r"https://chat\.googleapis\.com/[^\s)'&quot;\]}]*").unwrap();
+    re.replace_all(err_str, "https://chat.googleapis.com/[REDACTED]").into_owned()
+}
+
 /// Sends an asynchronous POST message to Google Chat webhook URL with the given text payload.
 /// Performs safety checks on the URL (HTTPS-only, host chat.googleapis.com).
 pub async fn send_message(url_str: &str, text: &str) -> Result<Response, String> {
@@ -75,13 +82,20 @@ pub async fn send_message(url_str: &str, text: &str) -> Result<Response, String>
     let mut payload = HashMap::new();
     payload.insert("text", text);
     
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create reqwest client: {}", e))?;
+
     let response = client
         .post(validated_url)
         .json(&payload)
         .send()
         .await
-        .map_err(|e| format!("Failed to send message via reqwest: {}", e))?;
+        .map_err(|e| {
+            let raw_err = format!("{}", e);
+            sanitize_error(&raw_err)
+        })?;
         
     Ok(response)
 }

@@ -7,23 +7,56 @@ const parsedMentions = (() => {
     return [];
 })();
 
-async function sendMessage(webhookURL, text) {
-    if (!webhookURL) {
-        console.error('Validation Error: Webhook URL is missing or undefined.');
-        return;
-    }
+function sanitizeErrorMessage(error) {
+    const rawMessage = error?.stack || error?.message || String(error);
+    return rawMessage.replace(/https:\/\/chat\.googleapis\.com\/[^\s)'"\]}]*/g, 'https://chat.googleapis.com/[REDACTED]');
+}
 
+function validateURL(urlStr) {
+    if (!urlStr) {
+        throw new Error('URL is empty or undefined');
+    }
+    let parsed;
     try {
-        const response = await fetch(webhookURL, {
+        parsed = new URL(urlStr);
+    } catch (error) {
+        throw new Error('Invalid URL structure');
+    }
+    
+    if (parsed.protocol !== 'https:') {
+        throw new Error('Insecure URL scheme: only HTTPS is allowed');
+    }
+    if (parsed.hostname.toLowerCase() !== 'chat.googleapis.com') {
+        throw new Error(`Unauthorized host '${parsed.hostname}': Only 'chat.googleapis.com' is allowed.`);
+    }
+    return parsed;
+}
+
+async function sendMessage(webhookURL, text) {
+    let timeoutId;
+    try {
+        const validatedURL = validateURL(webhookURL);
+
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(validatedURL.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text }),
+            signal: controller.signal
         });
+
         console.log(`Message sent to webhook, status:`, response.status);
     } catch (error) {
-        console.error('Error sending message:', error);
+        const sanitizedMsg = sanitizeErrorMessage(error);
+        console.error('Error sending message:', sanitizedMsg);
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
 }
 

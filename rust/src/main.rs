@@ -1,5 +1,9 @@
+#![allow(dead_code)]
 use clap::Parser;
 
+mod messenger;
+mod hydration;
+mod journal;
 mod scheduler;
 
 #[derive(Parser, Debug)]

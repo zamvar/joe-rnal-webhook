@@ -166,12 +166,17 @@ pub fn get_hydration_mentions(mentions: &[String]) -> String {
     "<users/all>".to_string()
 }
 
-pub async fn send_message(client: &Client, webhook_url: &str, text: &str) -> Result<(), reqwest::Error> {
+pub async fn send_message(client: &Client, webhook_url: &str, text: &str) -> Result<(), String> {
+    let validated_url = crate::messenger::validate_url(webhook_url)?;
     let payload = json!({ "text": text });
-    let response = client.post(webhook_url)
+    let response = client.post(validated_url)
         .json(&payload)
         .send()
-        .await?;
+        .await
+        .map_err(|e| {
+            let raw_err = format!("{}", e);
+            crate::messenger::sanitize_error(&raw_err)
+        })?;
     println!("Message sent to webhook, status: {}", response.status());
     Ok(())
 }
@@ -246,7 +251,10 @@ pub async fn start_scheduler(mode: RunMode, dry_run: bool) -> Result<(), Box<dyn
     }
 
     // Run active jobs in spawned Tokio tasks
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create reqwest client: {}", e))?;
     let mut handles = Vec::new();
 
     for job in jobs {

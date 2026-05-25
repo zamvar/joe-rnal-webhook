@@ -612,6 +612,7 @@ dependencies = [
  "cron",
  "dotenvy",
  "rand",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",
